@@ -2,18 +2,18 @@
 
 import os
 import subprocess
-import urllib
+import requests
 
 import boto3
-
+import shutil
 
 # Version of Terraform that we're using
-TERRAFORM_VERSION = '0.8.5'
+TERRAFORM_VERSION = '1.1.5'
 
 # Download URL for Terraform
 TERRAFORM_DOWNLOAD_URL = (
-    'https://releases.hashicorp.com/terraform/%s/terraform_%s_linux_amd64.zip'
-    % (TERRAFORM_VERSION, TERRAFORM_VERSION))
+        'https://releases.hashicorp.com/terraform/%s/terraform_%s_linux_amd64.zip'
+        % (TERRAFORM_VERSION, TERRAFORM_VERSION))
 
 # Paths where Terraform should be installed
 TERRAFORM_DIR = os.path.join('/tmp', 'terraform_%s' % TERRAFORM_VERSION)
@@ -25,9 +25,9 @@ def check_call(args):
     and if not, prints stdout and stderr.
     """
     proc = subprocess.Popen(args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd='/tmp')
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            cwd='/tmp')
     stdout, stderr = proc.communicate()
     if proc.returncode != 0:
         print(stdout)
@@ -47,13 +47,10 @@ def install_terraform():
     if os.path.exists(TERRAFORM_PATH):
         return
 
-    urllib.urlretrieve(TERRAFORM_DOWNLOAD_URL, '/tmp/terraform.zip')
-
-    # Flags:
-    #   '-o' = overwrite existing files without prompting
-    #   '-d' = output directory
-    check_call(['unzip', '-o', '/tmp/terraform.zip', '-d', TERRAFORM_DIR])
-
+    r = requests.get(TERRAFORM_DOWNLOAD_URL, allow_redirects=True)
+    open('/tmp/terraform.zip', 'wb').write(r.content)
+    shutil.unpack_archive('/tmp/terraform.zip', TERRAFORM_DIR)
+    check_call(["chmod", "777", TERRAFORM_PATH])
     check_call([TERRAFORM_PATH, '--version'])
 
 
@@ -68,8 +65,9 @@ def apply_terraform_plan(s3_bucket, path):
     # download a new copy of the planfile, as it may have changed externally.
     s3 = boto3.resource('s3')
     planfile = s3.Object(s3_bucket, path)
-    planfile.download_file('/tmp/terraform.plan')
-    check_call([TERRAFORM_PATH, 'apply', '/tmp/terraform.plan'])
+    planfile.download_file('/tmp/main.tf')
+    check_call([TERRAFORM_PATH, '-chdir=/tmp', 'init'])
+    check_call([TERRAFORM_PATH, '-chdir=/tmp', 'apply', '-auto-verify'])
 
 
 def handler(event, context):

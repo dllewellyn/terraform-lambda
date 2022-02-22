@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+  - AWS::Serverless-2016-10-31
+
+Resources:
+  TerraformLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: "TerraformLambda"
+      Tracing: Active
+      AutoPublishAlias: live
+      Handler: service.handler
+      Runtime: python3.9
+      CodeUri: .
+      MemorySize: 128
+      Timeout: 30
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref S3UploadBucket
+            Events: s3:ObjectCreated:*
+      Policies:
+        - S3ReadPolicy:
+            BucketName: "safetorun-tf-upload"
+  S3UploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: "safetorun-tf-upload"
+
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: TerraformLambda
+      Action: 'lambda:InvokeFunction'
+      Principal: 's3.amazonaws.com'
+      SourceAccount: !Sub ${AWS::AccountId}
+      SourceArn: !GetAtt S3UploadBucket.Arn
