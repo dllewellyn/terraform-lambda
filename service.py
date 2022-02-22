@@ -67,7 +67,7 @@ def apply_terraform_plan(s3_bucket, path):
     planfile = s3.Object(s3_bucket, path)
     planfile.download_file('/tmp/main.tf')
     check_call([TERRAFORM_PATH, '-chdir=/tmp', 'init'])
-    check_call([TERRAFORM_PATH, '-chdir=/tmp', 'apply', '-auto-verify'])
+    check_call([TERRAFORM_PATH, '-chdir=/tmp', 'apply', '-auto-approve'])
 
 
 def handler(event, context):
