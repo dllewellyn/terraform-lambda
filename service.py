@@ -3,7 +3,7 @@
 import os
 import subprocess
 import requests
-
+import json
 import boto3
 import shutil
 
@@ -35,6 +35,7 @@ def check_call(args):
         raise subprocess.CalledProcessError(
             returncode=proc.returncode,
             cmd=args)
+    return stdout
 
 
 def install_terraform():
@@ -68,6 +69,7 @@ def apply_terraform_plan(s3_bucket, path):
     planfile.download_file('/tmp/main.tf')
     check_call([TERRAFORM_PATH, '-chdir=/tmp', 'init'])
     check_call([TERRAFORM_PATH, '-chdir=/tmp', 'apply', '-auto-approve'])
+    return check_call([TERRAFORM_PATH, '-chdir=/tmp', "output", "-json"])
 
 
 def handler(event, context):
@@ -75,4 +77,4 @@ def handler(event, context):
     path = event['Records'][0]['s3']['object']['key']
 
     install_terraform()
-    apply_terraform_plan(s3_bucket=s3_bucket, path=path)
+    return apply_terraform_plan(s3_bucket=s3_bucket, path=path)
